@@ -28,6 +28,7 @@ library
                      , rasa-ext-style
                      , rasa-ext-status-bar
                      , rasa-ext-views
+                     , recursion-schemes
                      , text
                      , yi-rope
                      , lens
