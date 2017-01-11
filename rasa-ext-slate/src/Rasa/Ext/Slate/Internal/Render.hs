@@ -11,8 +11,8 @@ import Control.Monad.IO.Class
 import Data.Functor.Foldable
 
 import qualified Graphics.Vty as V
-import qualified Yi.Rope as Y
 import Control.Lens
+import Control.Monad.State
 
 type Width = Int
 type Height = Int
@@ -29,20 +29,19 @@ render = do
   (width, height) <- getSize
   Views vp <- getViews
   bufs <- collectBuffers
-  let img = renderWindow (width, height) $ fmap ((bufs !!) . view bufIndex) vp
+  let img = renderWindow (width, height) $ fmap (fmap (bufs !!)) vp
       pic = V.picForImage img
   v <- getVty
   liftIO $ V.update v pic
 
 -- | Given a window size, creates a 'BufAction' which will return an image representing the buffer it's run in.
-collectBuffers :: Action [(Y.YiString, [Span V.Attr])]
+collectBuffers :: Action [Buffer]
 collectBuffers = bufDo $ do
-  txt <- use rope
-  atts <- fmap (fmap convertStyle) <$> use styles
-  return [(txt, atts)]
+  buf <- get
+  return [buf]
 
 splitByRule :: SplitRule -> Int -> (Int, Int)
-splitByRule (Percentage p) sz = (start, end)
+splitByRule (Ratio p) sz = (start, end)
   where
     start = ceiling $ fromIntegral sz * p
     end = floor $ fromIntegral sz * (1 - p)
@@ -57,7 +56,7 @@ splitByRule (FromEnd amt) sz = (start, end)
     start = sz - end
     end = min sz amt
 
-renderWindow :: (Width, Height) -> BiTree Split (Y.YiString, [Span V.Attr]) -> V.Image
+renderWindow :: (Width, Height) -> BiTree Split (View Buffer) -> V.Image
 renderWindow sz win = cata alg win sz
   where
     alg (BranchF (Split Vert spRule) left right) = \(width, height) ->
@@ -74,5 +73,15 @@ renderWindow sz win = cata alg win sz
 
     alg (LeafF bufInfo) = \(width, height) -> renderView (width, height) bufInfo
 
-renderView :: (Width, Height) -> (Y.YiString, [Span V.Attr]) -> V.Image
-renderView (width, height) (txt, atts) = V.resize width height $ applyAttrs atts txt
+renderView :: (Width, Height) -> View Buffer -> V.Image
+renderView (width, height) bufView = appendActiveBar $ V.resize width availHeight $ applyAttrs atts txt
+  where
+    appendActiveBar img =
+      if isActive
+        then img V.<-> V.charFill (V.defAttr `V.withForeColor` V.magenta) '-' width 1
+        else img
+    availHeight = if isActive then height - 1
+                              else height
+    txt = bufView ^. viewPayload . rope
+    atts = bufView ^. viewPayload . styles & fmap (fmap convertStyle)
+    isActive = bufView ^. active
