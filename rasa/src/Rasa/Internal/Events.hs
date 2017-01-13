@@ -46,3 +46,8 @@ data Mod
   | Alt
   | Shift
   deriving (Show, Eq)
+
+data BufTextChanged
+  = BufTextChanged
+  deriving (Show, Eq, Typeable)
+  
