@@ -26,10 +26,9 @@ import StringBuffer
 
 import Control.Concurrent
 import Control.Concurrent.Chan ()
-import Control.Monad (forever)
-import qualified Data.Text as T
 import System.IO
 
+-- import qualified Data.Text as T
 -- import Data.Default
 -- import Rasa.Internal.Events
 
@@ -52,7 +51,7 @@ main = do
     logger
     slate
     -- eventListener lexBuf
-    beforeRender $ lexHaskell chIn chOut
+    _ <- beforeRender $ lexHaskell chIn chOut
     style
     void $ newBuffer "This is a buffer to get you started!\nYou can also pass command line args to rasa"
 
