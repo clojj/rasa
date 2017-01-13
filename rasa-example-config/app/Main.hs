@@ -65,6 +65,7 @@ lexHaskell chIn chOut =
     liftIO $ do
       writeChan chIn (T.unpack src)
       tokens <- readChan chOut
+      -- TODO tokens to styles! stderr is just for testing !
       hPutStr stderr $ "TOKENS\n" ++ concatMap showToken tokens
       return ()
 
