@@ -12,18 +12,19 @@ module Rasa.Ext.StatusBar
   ) where
 
 import Control.Lens
+import Control.Monad
 
 import Data.Typeable
 import Data.Default
 
-import qualified Data.Text as T
+import qualified Yi.Rope as Y
 
 import Rasa.Ext
 
 data StatusBar = StatusBar
-  { _left :: [T.Text]
-  , _center :: [T.Text]
-  , _right :: [T.Text]
+  { _left :: [Y.YiString]
+  , _center :: [Y.YiString]
+  , _right :: [Y.YiString]
   } deriving (Typeable, Show, Eq)
 
 makeLenses ''StatusBar
@@ -35,8 +36,8 @@ instance Default StatusBar where
     , _right=[]
     }
 
-statusBar :: Scheduler ()
-statusBar = beforeEvent $ bufDo clearStatus
+statusBar :: Action ()
+statusBar = void . beforeEvent $ buffersDo_ clearStatus
 
 clearStatus :: BufAction ()
 clearStatus = do
@@ -44,11 +45,11 @@ clearStatus = do
   bufExt.center .= []
   bufExt.right .= []
 
-leftStatus :: T.Text -> BufAction ()
+leftStatus :: Y.YiString -> BufAction ()
 leftStatus txt = bufExt.left %= (txt:)
 
-centerStatus :: T.Text -> BufAction ()
+centerStatus :: Y.YiString -> BufAction ()
 centerStatus txt = bufExt.center %= (txt:)
 
-rightStatus :: T.Text -> BufAction ()
+rightStatus :: Y.YiString -> BufAction ()
 rightStatus txt = bufExt.right %= (txt:)

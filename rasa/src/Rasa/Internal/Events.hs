@@ -1,7 +1,18 @@
 {-# language ExistentialQuantification #-}
-module Rasa.Internal.Events where
+module Rasa.Internal.Events 
+  ( Init(..)
+  , BeforeEvent(..)
+  , BeforeRender(..)
+  , OnRender(..)
+  , AfterRender(..)
+  , Exit(..)
+  , BufAdded(..)
+  , Keypress(..)
+  , Mod(..)
+  ) where
 
 import Data.Dynamic
+import Rasa.Internal.Editor
 
 -- | The Event type represents a common denominator for all actions that could
 -- occur Event transmitters express events that have occured as a member of this
@@ -29,15 +40,22 @@ data AfterRender = AfterRender deriving (Show, Eq, Typeable)
 -- any clean-up (saving files, etc.)
 data Exit = Exit deriving (Show, Eq, Typeable)
 
+-- | This event is dispatched after adding a new buffer. The contained BufRef refers to the new buffer.
+data BufAdded = BufAdded BufRef deriving (Show, Eq, Typeable)
+
 -- | This event is dispatched in response to keyboard key presses. It contains both
 -- the char that was pressed and any modifiers ('Mod') that where held when the key was pressed.
 data Keypress
   = Keypress Char
              [Mod]
-  | Esc
-  | BS
-  | Enter
-  | Unknown
+  | KEsc
+  | KBS
+  | KEnter
+  | KUnknown
+  | KLeft
+  | KRight
+  | KUp
+  | KDown
   deriving (Show, Eq, Typeable)
 
 -- | This represents each modifier key that could be pressed along with a key.

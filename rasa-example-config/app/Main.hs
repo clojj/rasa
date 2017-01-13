@@ -1,9 +1,10 @@
+{-# language OverloadedStrings #-}
 module Main where
 
 import Rasa (rasa)
-import Control.Lens
 import Rasa.Ext
 import Rasa.Ext.Cursors
+import Rasa.Ext.Views
 import Rasa.Ext.Files
 import Rasa.Ext.Logger
 import Rasa.Ext.Slate
@@ -11,6 +12,7 @@ import Rasa.Ext.StatusBar
 import Rasa.Ext.Style
 import Rasa.Ext.Vim
 
+import qualified Control.Lens as L
 import Control.Monad.IO.Class
 
 import ErrUtils (mkPlainErrMsg)
@@ -32,6 +34,8 @@ import System.IO
 -- import Rasa.Internal.Events
 
 
+import Control.Monad
+
 -- | This is the main of an executable that runs rasa with any extensions the
 -- user wants
 --
@@ -40,17 +44,17 @@ main :: IO ()
 main = do
   (chIn, chOut) <- startGhc
   rasa $ do
-     vim
-     statusBar
-     files
-     cursors
-     logger
-     slate
-    --  eventListener lexBuf
-     beforeRender $ lexHaskell chIn chOut
-     style
-
-
+    views
+    vim
+    statusBar
+    files
+    cursors
+    logger
+    slate
+    -- eventListener lexBuf
+    beforeRender $ lexHaskell chIn chOut
+    style
+    void $ newBuffer "This is a buffer to get you started!\nYou can also pass command line args to rasa"
 
 -- TODO async tokenization ?
 
@@ -60,10 +64,10 @@ main = do
 
 lexHaskell :: Chan String -> Chan [Located Token] -> Action ()
 lexHaskell chIn chOut = 
-  focusDo $ do
-    src <- use text
+  void $ focusDo $ do
+    src <- L.use (text . asString)
     liftIO $ do
-      writeChan chIn (T.unpack src)
+      writeChan chIn src
       tokens <- readChan chOut
       -- TODO tokens to styles! stderr is just for testing !
       hPutStr stderr $ "TOKENS\n" ++ concatMap showToken tokens
