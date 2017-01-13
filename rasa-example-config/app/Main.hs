@@ -29,9 +29,8 @@ import Control.Concurrent.Chan ()
 import System.IO
 
 -- import qualified Data.Text as T
--- import Data.Default
 -- import Rasa.Internal.Events
-
+import Data.Default
 
 import Control.Monad
 
@@ -40,9 +39,10 @@ import Control.Monad
 --
 -- The @do@ block is of type 'Rasa.Ext.Scheduler.Scheduler'
 main :: IO ()
-main = do
-  (chIn, chOut) <- startGhc
+main = -- do
+  -- (chIn, chOut) <- startGhc
   rasa $ do
+    _ <- onInit initLexer
     views
     vim
     statusBar
@@ -50,8 +50,12 @@ main = do
     cursors
     logger
     slate
+
     -- eventListener lexBuf
-    _ <- beforeRender $ lexHaskell chIn chOut
+
+    -- _ <- beforeRender $ lexHaskell chIn chOut
+    _ <- beforeRender lexIt
+
     style
     void $ newBuffer "This is a buffer to get you started!\nYou can also pass command line args to rasa"
 
@@ -60,6 +64,37 @@ main = do
 -- TODO complete issue #20, then do some optimized tokenization...
 -- lexBuf :: BufTextChanged -> Action ()
 -- lexBuf (BufTextChanged chg) = lexHaskell ch
+
+newtype ChanIn = ChanIn (Chan String)
+
+instance Show ChanIn where
+  show (ChanIn _) = "Lexer Channel In"
+
+instance Default ChanIn where
+  def = ChanIn undefined
+
+newtype ChanOut = ChanOut (Chan [Located Token])
+
+instance Show ChanOut where
+  show (ChanOut _) = "Lexer Channel Out"
+
+instance Default ChanOut where
+  def = ChanOut undefined
+
+newtype StorableChannels = StorableChannels (ChanIn, ChanOut)
+  
+instance Show StorableChannels where
+  show (StorableChannels _) = "Lexer Channels"
+
+instance Default StorableChannels where
+  def = StorableChannels undefined
+  
+  
+lexIt :: Action ()
+lexIt = do
+  StorableChannels (ChanIn chIn, ChanOut chOut) <- L.use ext
+  lexHaskell chIn chOut
+  return ()
 
 lexHaskell :: Chan String -> Chan [Located Token] -> Action ()
 lexHaskell chIn chOut = 
@@ -72,8 +107,13 @@ lexHaskell chIn chOut =
       hPutStr stderr $ "TOKENS\n" ++ concatMap showToken tokens
       return ()
 
+initLexer :: Action ()
+initLexer = do
+  channels <- liftIO startGhc
+  ext L..= channels
+  return ()
 
-startGhc :: IO (Chan String, Chan [Located Token])
+startGhc :: IO StorableChannels
 startGhc = do
   chIn <- newChan
   chOut <- newChan
@@ -91,7 +131,7 @@ startGhc = do
             GMU.liftIO $
               do putStrLn "Lexer Error:"
                  print $ mkPlainErrMsg flags srcspan msg
-  return (chIn, chOut)
+  return $ StorableChannels (ChanIn chIn, ChanOut chOut)
 
 showToken :: GenLocated SrcSpan Token -> String
 showToken t = "\nsrcLoc: " ++ srcloc ++ "\ntok: " ++ tok ++ "\n"
