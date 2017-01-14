@@ -25,7 +25,6 @@ import SrcLoc
 import StringBuffer
 
 import Control.Concurrent
-import Control.Concurrent.Chan ()
 import System.IO
 
 -- import qualified Data.Text as T
@@ -37,22 +36,22 @@ import Data.Default
 import Control.Monad
 
 
-newtype RasaChan a = RasaChan (Chan a)
+newtype RasaMVar a = RasaMVar (MVar a)
 
-instance Show (RasaChan a) where
-  show _ = "Lexer Channel"
+instance Show (RasaMVar a) where
+  show _ = "Show MVar"
 
-newtype ChannelStore = ChannelStore
+newtype MVarStore = MVarStore
   {
-    _chans  :: (RasaChan String, RasaChan [Located Token])
+    _chans  :: (RasaMVar String, RasaMVar [Located Token])
   } deriving (Show, Typeable)
 
-instance Default ChannelStore where
-  def = ChannelStore undefined
+instance Default MVarStore where
+  def = MVarStore undefined
 
-L.makeLenses ''ChannelStore  
+L.makeLenses ''MVarStore  
   
-chs :: HasEditor e => L.Lens' e (RasaChan String, RasaChan [Located Token])
+chs :: HasEditor e => L.Lens' e (RasaMVar String, RasaMVar [Located Token])
 chs = ext . chans
 
 
@@ -71,7 +70,7 @@ main =
     -- eventListener lexBuf
     _ <- beforeRender lexIt
     style
-    void $ newBuffer "This is a buffer to get you started!\nYou can also pass command line args to rasa"
+    void $ newBuffer "module Test where\n\nmain = undefined"
 
 -- TODO async tokenization ?
 
@@ -81,19 +80,23 @@ main =
 
 lexIt :: Action ()
 lexIt = do
-  (RasaChan chIn, RasaChan chOut) <- L.use chs
+  (RasaMVar chIn, RasaMVar chOut) <- L.use chs
   lexHaskell chIn chOut
   return ()
 
-lexHaskell :: Chan String -> Chan [Located Token] -> Action ()
+lexHaskell :: MVar String -> MVar [Located Token] -> Action ()
 lexHaskell chIn chOut = 
   void $ focusDo $ do
     src <- L.use (text . asString)
     liftIO $ do
-      writeChan chIn src
-      tokens <- readChan chOut
+      putMVar chIn src
+
+      -- TODO delayed lexing works only when async delivery
+      tokens <- takeMVar chOut
+
       -- TODO tokens to styles! stderr is just for testing !
       hPutStr stderr $ "TOKENS\n" ++ concatMap showToken tokens
+
       return ()
 
 initLexer :: Action ()
@@ -102,25 +105,42 @@ initLexer = do
   ext L..= channels
   return ()
 
-startGhc :: IO ChannelStore
+startGhc :: IO MVarStore
 startGhc = do
-  chIn <- newChan
-  chOut <- newChan
+  chIn <- newEmptyMVar
+  chOut <- newEmptyMVar
   threadId <- forkIO $ runGhc (Just libdir) $ do
     flags <- getSessionDynFlags
     let lexLoc = mkRealSrcLoc (mkFastString "<interactive>") 1 1
     GMU.liftIO $ forever $ do
-        str <- readChan chIn
+        str <- takeMVar chIn
+
+        -- TODO delayed lexing works only when async delivery
+{-        
+        Control.Concurrent.threadDelay 1000000
+        newInput <- tryTakeMVar chIn
+        str' <- case newInput of
+                  Nothing -> return str
+                  Just newStr -> do
+                    hPutStr stderr "\nDELAYED\n"
+                    return newStr
+        let sb = stringToStringBuffer str'
+-}
         let sb = stringToStringBuffer str
         let pResult = lexTokenStream sb lexLoc flags
         case pResult of
-          POk _ toks -> GMU.liftIO $ writeChan chOut toks
+
+          POk _ toks -> GMU.liftIO $ do
+            -- hPutStr stderr $ "TOKENS\n" ++ concatMap showToken toks
+            -- TODO delayed lexing works only when async delivery
+            putMVar chOut toks
+
           PFailed srcspan msg -> do
             GMU.liftIO $ print $ show srcspan
             GMU.liftIO $
               do putStrLn "Lexer Error:"
                  print $ mkPlainErrMsg flags srcspan msg
-  return $ ChannelStore (RasaChan chIn, RasaChan chOut)
+  return $ MVarStore (RasaMVar chIn, RasaMVar chOut)
 
 showToken :: GenLocated SrcSpan Token -> String
 showToken t = "\nsrcLoc: " ++ srcloc ++ "\ntok: " ++ tok ++ "\n"
