@@ -70,7 +70,7 @@ main =
     -- eventListener lexBuf
     _ <- beforeRender lexIt
     style
-    void $ newBuffer "module Test where\n\nmain = undefined"
+    void $ newBuffer "module Test where\n\nmain = do\n  line <- getLine\n  print line"
 
 -- TODO async tokenization ?
 
