@@ -1,4 +1,4 @@
-{-# language OverloadedStrings #-}
+{-# language OverloadedStrings, TemplateHaskell #-}
 module Main where
 
 import Rasa (rasa)
@@ -30,17 +30,35 @@ import System.IO
 
 -- import qualified Data.Text as T
 -- import Rasa.Internal.Events
+
+import Data.Typeable
 import Data.Default
 
 import Control.Monad
 
--- | This is the main of an executable that runs rasa with any extensions the
--- user wants
---
+
+newtype RasaChan a = RasaChan (Chan a)
+
+instance Show (RasaChan a) where
+  show _ = "Lexer Channel"
+
+newtype ChannelStore = ChannelStore
+  {
+    _chans  :: (RasaChan String, RasaChan [Located Token])
+  } deriving (Show, Typeable)
+
+instance Default ChannelStore where
+  def = ChannelStore undefined
+
+L.makeLenses ''ChannelStore  
+  
+chs :: HasEditor e => L.Lens' e (RasaChan String, RasaChan [Located Token])
+chs = ext . chans
+
+
 -- The @do@ block is of type 'Rasa.Ext.Scheduler.Scheduler'
 main :: IO ()
-main = -- do
-  -- (chIn, chOut) <- startGhc
+main =
   rasa $ do
     _ <- onInit initLexer
     views
@@ -50,12 +68,8 @@ main = -- do
     cursors
     logger
     slate
-
     -- eventListener lexBuf
-
-    -- _ <- beforeRender $ lexHaskell chIn chOut
     _ <- beforeRender lexIt
-
     style
     void $ newBuffer "This is a buffer to get you started!\nYou can also pass command line args to rasa"
 
@@ -65,34 +79,9 @@ main = -- do
 -- lexBuf :: BufTextChanged -> Action ()
 -- lexBuf (BufTextChanged chg) = lexHaskell ch
 
-newtype ChanIn = ChanIn (Chan String)
-
-instance Show ChanIn where
-  show (ChanIn _) = "Lexer Channel In"
-
-instance Default ChanIn where
-  def = ChanIn undefined
-
-newtype ChanOut = ChanOut (Chan [Located Token])
-
-instance Show ChanOut where
-  show (ChanOut _) = "Lexer Channel Out"
-
-instance Default ChanOut where
-  def = ChanOut undefined
-
-newtype StorableChannels = StorableChannels (ChanIn, ChanOut)
-  
-instance Show StorableChannels where
-  show (StorableChannels _) = "Lexer Channels"
-
-instance Default StorableChannels where
-  def = StorableChannels undefined
-  
-  
 lexIt :: Action ()
 lexIt = do
-  StorableChannels (ChanIn chIn, ChanOut chOut) <- L.use ext
+  (RasaChan chIn, RasaChan chOut) <- L.use chs
   lexHaskell chIn chOut
   return ()
 
@@ -113,7 +102,7 @@ initLexer = do
   ext L..= channels
   return ()
 
-startGhc :: IO StorableChannels
+startGhc :: IO ChannelStore
 startGhc = do
   chIn <- newChan
   chOut <- newChan
@@ -131,7 +120,7 @@ startGhc = do
             GMU.liftIO $
               do putStrLn "Lexer Error:"
                  print $ mkPlainErrMsg flags srcspan msg
-  return $ StorableChannels (ChanIn chIn, ChanOut chOut)
+  return $ ChannelStore (RasaChan chIn, RasaChan chOut)
 
 showToken :: GenLocated SrcSpan Token -> String
 showToken t = "\nsrcLoc: " ++ srcloc ++ "\ntok: " ++ tok ++ "\n"
