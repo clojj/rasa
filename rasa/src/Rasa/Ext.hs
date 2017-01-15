@@ -14,11 +14,6 @@
 -- to editor events, or expose useful actions and/or state for other extensions
 -- to use.
 --
--- To react to events an extension defines a 'Scheduler'
--- which the user puts in their config file. The 'Scheduler'
--- defines listeners for events which the extension will react to.
--- See 'Scheduler' for more detailed information.
---
 -- Whether performing its own actions or being used by a different extension
 -- an extension will want to define some 'Action's to perform. Actions
 -- can operate over buffers or even perform IO and comprise the main way in which
@@ -30,7 +25,7 @@
 -- > logKeypress :: Keypress -> Action ()
 -- > logKeypress (Keypress char _) = liftIO $ appendFile "logs" ("You pressed " ++ [char] ++ "\n")
 -- >
--- > logger :: Scheduler ()
+-- > logger :: Action HookId
 -- > logger = do
 -- >   onInit $ liftIO $ writeFile "logs" "==Logs==\n"
 -- >   eventListener logKeypress
@@ -58,6 +53,7 @@ module Rasa.Ext
 
   -- * Working with Buffers
   , BufAction
+  , liftAction
   , bufDo
   , bufDo_
   , buffersDo
@@ -108,6 +104,7 @@ module Rasa.Ext
 
    -- * Accessing/Editing Context
   , Buffer
+  , HasBuffer
   , BufRef
   , HasEditor
   , text
@@ -126,6 +123,7 @@ module Rasa.Ext
   , dispatchEvent
   , eventListener
   , removeListener
+  , persistentListener
   , eventProvider
 
   -- * Built-in Event Hooks

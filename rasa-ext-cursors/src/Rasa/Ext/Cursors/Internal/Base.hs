@@ -1,13 +1,13 @@
 {-# LANGUAGE TemplateHaskell, OverloadedStrings, Rank2Types #-}
 
-module Rasa.Ext.Cursors.Base
+module Rasa.Ext.Cursors.Internal.Base
   ( rangeDo
   , rangeDo_
   , ranges
-  , displayRange
   , eachRange
   , overRanges
   , addRange
+  , displayRange
   ) where
 
 
@@ -25,7 +25,6 @@ import qualified Yi.Rope as Y
 data Cursors = Cursors
   { _cursors :: [Range]
   } deriving (Typeable, Show)
-
 makeLenses ''Cursors
 
 instance Default Cursors where
@@ -45,14 +44,14 @@ cleanRanges :: Y.YiString -> [Range] -> [Range]
 cleanRanges txt = fmap (ensureSize . clampRange txt) . reverse . nub . sort
 
 -- | A lens over all the stored cursor ranges for a buffer
-ranges :: Lens' Buffer [Range]
+ranges :: HasBuffer s => Lens' s [Range]
 ranges = lens getter setter
   where getter buf = buf^.bufExt.cursors
         setter buf new = let txt = buf^.text
                           in buf & bufExt.cursors .~ cleanRanges txt new
 
 -- | A Traversal over each Range for the given buffer.
-eachRange :: Traversal' Buffer Range
+eachRange :: HasBuffer s => Traversal' s Range
 eachRange = ranges.traverse
 
 -- | Sequences actions over each range as a 'BufAction'

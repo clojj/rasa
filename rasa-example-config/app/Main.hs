@@ -54,7 +54,6 @@ L.makeLenses ''MVarStore
 chs :: HasEditor e => L.Lens' e (RasaMVar String, RasaMVar [Located Token])
 chs = ext . chans
 
-
 -- The @do@ block is of type 'Rasa.Ext.Scheduler.Scheduler'
 main :: IO ()
 main =
