@@ -67,7 +67,7 @@ main =
     logger
     slate
     -- eventListener lexBuf
-    _ <- beforeRender lexIt
+    _ <- beforeEveryRender lexIt
     style
     void $ newBuffer "module Test where\n\nmain = do\n  line <- getLine\n  print line"
 

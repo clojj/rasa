@@ -9,7 +9,7 @@ import Rasa.Ext.Files (save)
 import Rasa.Ext.Cursors
 import Rasa.Ext.StatusBar
 
-import Control.Monad (unless, void)
+import Control.Monad
 import Control.Lens
 import Data.Default
 import Data.Typeable
@@ -51,9 +51,9 @@ hist = bufExt.histKeys
 vim :: Action ()
 vim = do
   -- Register to listen for keypresses
-  void $ eventListener handleKeypress
+  onEveryTrigger_ handleKeypress
   -- Set the status bar to the current mode before each render
-  void $ beforeRender setStatus
+  beforeEveryRender_ setStatus
 
 -- | The event hook which listens for keypresses and responds appropriately
 handleKeypress :: Keypress -> Action ()
@@ -70,7 +70,7 @@ handleKeypress keypress = focusDo_ $ do
 
 -- | Sets the status bar to the current mode and current VimHist
 setStatus :: Action ()
-setStatus = void . focusDo $ do
+setStatus = focusDo_ $ do
   modeDisp <- use (mode.to show.to Y.fromString)
   histDisp <- use (hist.to show.to Y.fromString)
   centerStatus modeDisp
@@ -107,10 +107,17 @@ normal [Keypress 'w' [Ctrl]] = liftAction hSplit
 normal [Keypress 'v' [Ctrl]] = liftAction vSplit
 normal [Keypress 'o' [Ctrl]] = liftAction closeInactive
 normal [Keypress 'r' [Ctrl]] = liftAction rotate
+
+normal [Keypress 'e' [Ctrl]] = liftAction $ scrollBy 1 -- Scroll down
+normal [Keypress 'd' [Ctrl]] = liftAction $ scrollBy 7 -- Half-Page down
+normal [Keypress 'y' [Ctrl]] = liftAction $ scrollBy (-1) -- Scroll up
+normal [Keypress 'u' [Ctrl]] = liftAction $ scrollBy (-7) -- Half-Page up
+
 normal [KLeft] = liftAction focusViewLeft
 normal [KRight] = liftAction focusViewRight
 normal [KUp] = liftAction focusViewAbove
 normal [KDown] = liftAction focusViewBelow
+
 
 normal [Keypress 'G' []] = do
   txt <- use text
