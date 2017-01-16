@@ -9,10 +9,12 @@ module Rasa.Internal.Events
   , BufAdded(..)
   , Keypress(..)
   , Mod(..)
+  , BufTextChanged(..)
   ) where
 
 import Data.Dynamic
 import Rasa.Internal.Editor
+import Rasa.Internal.Range
 
 -- | The Event type represents a common denominator for all actions that could
 -- occur Event transmitters express events that have occured as a member of this
@@ -66,6 +68,6 @@ data Mod
   deriving (Show, Eq)
 
 data BufTextChanged
-  = BufTextChanged
+  = BufTextChanged Range
   deriving (Show, Eq, Typeable)
   

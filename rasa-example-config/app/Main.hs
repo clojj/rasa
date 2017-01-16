@@ -24,16 +24,11 @@ import qualified MonadUtils as GMU
 import SrcLoc
 import StringBuffer
 
+import Control.Monad
 import Control.Concurrent
 import System.IO
-
--- import qualified Data.Text as T
--- import Rasa.Internal.Events
-
 import Data.Typeable
 import Data.Default
-
-import Control.Monad
 
 
 newtype RasaMVar a = RasaMVar (MVar a)
@@ -66,27 +61,24 @@ main =
     cursors
     logger
     slate
-    -- eventListener lexBuf
-    _ <- beforeEveryRender lexIt
+    _ <- onBufTextChanged lexIt
     style
     void $ newBuffer "module Test where\n\nmain = do\n  line <- getLine\n  print line"
 
 -- TODO async tokenization ?
 
--- TODO complete issue #20, then do some optimized tokenization...
--- lexBuf :: BufTextChanged -> Action ()
--- lexBuf (BufTextChanged chg) = lexHaskell ch
-
-lexIt :: Action ()
-lexIt = do
+-- TODO complete issue #20, then do some optimized tokenization by using range
+lexIt :: Range -> Action ()
+lexIt r = do
   (RasaMVar chIn, RasaMVar chOut) <- L.use chs
   lexHaskell chIn chOut
+  printChg r
   return ()
 
 lexHaskell :: MVar String -> MVar [Located Token] -> Action ()
 lexHaskell chIn chOut = 
   void $ focusDo $ do
-    src <- L.use (text . asString)
+    src <- L.use (getText . asString)
     liftIO $ do
       putMVar chIn src
 
@@ -154,3 +146,6 @@ showTokenWithSource (loctok, src) =
   where
     tok = show $ unLoc loctok
     srcloc = show $ getLoc loctok
+
+printChg :: Range -> Action ()
+printChg r = logInfo $ "BufTextChanged " ++ show r
